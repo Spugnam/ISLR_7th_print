@@ -1,0 +1,271 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+```{r}
+plot(cars)
+```
+
+```{r}
+library(ISLR)
+View(Auto)
+attach(Auto)
+```
+
+```{r}
+set.seed(1)
+train=sample(392,196)
+?sample
+```
+
+```{r}
+lm.fit=lm(mpg~horsepower,data=Auto,subset=train)
+?mean
+mean((mpg-predict(lm.fit,Auto))[-train]^2) # MSE
+```
+
+```{r}
+mean((mpg-predict(lm.fit,Auto))[train])
+
+```
+
+```{r}
+lm.fit2=lm(mpg~poly(horsepower,2),data=Auto,subset=train)
+mean((mpg-predict(lm.fit2,Auto))[-train]^2)
+lm.fit3=lm(mpg~poly(horsepower,3),data=Auto,subset=train)
+mean((mpg-predict(lm.fit3,Auto))[-train]^2)
+```
+
+```{r}
+# Different Sample
+set.seed(2)
+train=sample(392,196)
+lm.fit=lm(mpg~horsepower,subset=train)
+mean((mpg-predict(lm.fit,Auto))[-train]^2)
+lm.fit2=lm(mpg~poly(horsepower,2),data=Auto,subset=train)
+mean((mpg-predict(lm.fit2,Auto))[-train]^2)
+lm.fit3=lm(mpg~poly(horsepower,3),data=Auto,subset=train)
+mean((mpg-predict(lm.fit3,Auto))[-train]^2)
+```
+
+```{r}
+?glm
+```
+
+```{r}
+# Leave-One-Out Cross-Validation
+
+library(boot)
+glm.fit=glm(mpg~horsepower,data=Auto)
+cv.err=cv.glm(Auto,glm.fit)
+cv.err$delta  #LOOCV statistic
+```
+
+```{r}
+cv.error=rep(0,5)
+for (i in 1:5){
+ glm.fit=glm(mpg~poly(horsepower,i),data=Auto)
+ cv.error[i]=cv.glm(Auto,glm.fit)$delta[1]
+ }
+cv.error
+```
+
+```{r}
+# k-Fold Cross-Validation
+
+set.seed(17)
+cv.error.10=rep(0,10)
+cv.error.102=rep(0,10)
+for (i in 1:10){
+ glm.fit=glm(mpg~poly(horsepower,i),data=Auto)
+ cv.error.10[i]=cv.glm(Auto,glm.fit,K=10)$delta[1]
+ cv.error.102[i]=cv.glm(Auto,glm.fit,K=10)$delta[2]
+ }
+cv.error.10
+cv.error.102
+```
+
+```{r}
+# The Bootstrap
+
+alpha.fn=function(data,index){
+ X=data$X[index]
+ Y=data$Y[index]
+ return((var(Y)-cov(X,Y))/(var(X)+var(Y)-2*cov(X,Y)))
+ }
+alpha.fn(Portfolio,1:100)
+set.seed(1)
+alpha.fn(Portfolio,sample(100,100,replace=T))
+boot(Portfolio,alpha.fn,R=1000)
+```
+
+```{r}
+?boot
+```
+
+```{r}
+#Ex 2
+plot(1:100000, (1-1/x)^x, log="x")
+```
+
+```{r}
+store=rep(NA, 10000) 
+for(i in 1:10000){
+store[i]=sum(sample(1:100, rep=TRUE)==4)>0 }
+mean(store)
+```
+
+```{r}
+#Ex 5
+library(ISLR)
+set.seed(1)
+#View(Default)
+attach(Default)
+glm.fit=glm(default~balance+income, family = "binomial", data=Default)
+glm.fit
+```
+
+```{r}
+train=sample(10000,9000)
+glm.fit=glm(default~balance+income, family = binomial, data=Default, subset=train)
+
+glm.pred = rep("No", 1000)
+glm.probs = predict(glm.fit, Default[-train, ], type = "response")
+glm.pred[glm.probs > 0.5] = "Yes"
+
+mean(glm.pred != Default[-train, ]$default)
+```
+
+```{r}
+#Ex 6
+set.seed(1)
+glm.fit = glm(default~income+balance, data=Default, family=binomial)
+summary(glm.fit)$coef
+```
+
+```{r}
+boot.fn=function(data, index){
+  return(summary(glm(default~income+balance, data=Default, family=binomial, subset=index))$coef)
+}
+boot.fn(Default, sample(10000, 1000))
+```
+
+```{r}
+boot(Default,boot.fn,1000)
+```
+
+```{r}
+#Ex 7
+#View(Weekly)
+attach(Weekly)
+glm(Direction~Lag1+Lag2, data=Weekly, family=binomial)
+```
+
+```{r}
+# Without the 1st observation
+glm.fit = glm(Direction~Lag1+Lag2, data=Weekly, family=binomial, subset=2:1089)
+```
+
+```{r}
+glm.probs = predict(glm.fit, Weekly[1, ], type="response")
+if (glm.probs > 0.5) {
+  glm.pred1="Up"
+} else {
+  glm.pred1="Down"
+}
+glm.pred1
+glm.pred1==Direction[1]
+```
+
+```{r}
+# Manual LOOCV
+LOOCV = function(datas){
+  subset.var=1:dim(datas)[1]
+  vect=rep(0, dim(datas)[1])
+  vect.prob=rep(0, dim(datas)[1])
+  for (i in 1:dim(datas)[1]) {
+    glm.fit = glm(Direction~Lag1+Lag2, data=datas, family=binomial, subset=subset.var[-i])
+    glm.probs = predict(glm.fit, Weekly[i,], type="response")
+    vect.prob[i]=glm.probs
+    if ((glm.probs > 0.5) && (Direction[i]=="Up")){
+        vect[i]=1
+    } else if ((glm.probs < 0.5) && (Direction[i]=="Down")){
+        vect[i]=1
+      }
+  }
+  return(mean(vect))
+}
+LOOCV(Weekly)
+```
+
+```{r}
+#Ex 8
+set.seed(1)
+x=rnorm(100)
+y=x-2*x^2+rnorm(100)
+plot(x, y)
+```
+
+```{r}
+#Ex 9
+library(MASS)
+attach(Boston)
+mean(medv)
+```
+
+```{r}
+medv.err = sd(medv)/sqrt(length(medv))
+medv.err
+```
+
+```{r}
+boot.fn = function(data, index) return(mean(data[index]))
+library(boot)
+bstrap = boot(medv, boot.fn, 1000)
+bstrap
+```
+
+```{r}
+t.test(medv)
+```
+
+```{r}
+c(bstrap$t0 - 2 * 0.4119, bstrap$t0 + 2 * 0.4119)
+```
+
+```{r}
+medv.med = median(medv)
+medv.med
+```
+
+```{r}
+library(boot)
+boot.fn=function(data, index) {
+  return(median(data[index]))
+         }
+boot(Boston$medv, boot.fn, 1000)
+```
+
+```{r}
+?quantile
+```
+
+```{r}
+medv.tenth = quantile(medv, c(0.1))
+medv.tenth
+```
+
+```{r}
+boot.fn = function(data, index) return(quantile(data[index], c(0.1)))
+boot(medv, boot.fn, 1000)
+```
+
